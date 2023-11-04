@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.13;
 
+import "hardhat/console.sol";
+
 contract Auction {
 
     address internal judgeAddress;
@@ -10,6 +12,7 @@ contract Auction {
     uint winningPrice;
 
     // TODO: place your code here
+    mapping(address => uint) public pendingWithdrawals;
 
     // constructor
     constructor(address _sellerAddress,
@@ -23,6 +26,12 @@ contract Auction {
           sellerAddress = msg.sender;
         winnerAddress = _winnerAddress;
         winningPrice = _winningPrice;
+    }
+
+    // Ensure the auction has ended
+    modifier auctionHasEnded() {
+        require(getWinner() != address(0x0), "No winner specified, auction is not over.");
+        _;
     }
 
     // This is used in testing.
@@ -42,18 +51,34 @@ contract Auction {
 
     // If no judge is specified, anybody can call this.
     // If a judge is specified, then only the judge or winning bidder may call.
-    function finalize() public virtual {
+    function finalize() public virtual auctionHasEnded {
 
         // TODO: place your code here
+
+        // If judge is specified, only judge or winner can finalize
+        if (judgeAddress != address(0x0)) {
+            require(
+                msg.sender == judgeAddress || msg.sender == winnerAddress,
+                "Judge is specified. Only winner or judge can finalize the auction and pay the seller"
+            );
+        }
+
+        // If no judge is specified, anyone can finalize
+        pendingWithdrawals[sellerAddress] = winningPrice;
 
     }
 
     // This can ONLY be called by seller or the judge (if a judge exists).
     // Money should only be refunded to the winner.
-    function refund() public {
+    function refund() public auctionHasEnded {
 
         // TODO: place your code here
+        require(
+            msg.sender == judgeAddress || msg.sender == sellerAddress,
+            "Only the seller or judge can refund the money to the winner"
+        );
 
+        pendingWithdrawals[winnerAddress] = winningPrice;
     }
 
     // Withdraw funds from the contract.
@@ -64,7 +89,13 @@ contract Auction {
     function withdraw() public {
 
         //TODO: place your code here
+        uint withdrawAmount = pendingWithdrawals[msg.sender];
+        require(withdrawAmount >= 0, "Attempting to withdraw invalid amount of funds.");
 
+        pendingWithdrawals[msg.sender] = 0;
+
+        (bool sent,) = msg.sender.call{value: withdrawAmount}("");
+        require(sent, "Failed to send funds");
     }
 
 }
