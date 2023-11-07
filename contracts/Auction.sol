@@ -58,13 +58,13 @@ contract Auction {
         // If judge is specified, only judge or winner can finalize
         if (judgeAddress != address(0x0)) {
             require(
-                msg.sender == judgeAddress || msg.sender == winnerAddress,
+                msg.sender == judgeAddress || msg.sender == getWinner(),
                 "Judge is specified. Only winner or judge can finalize the auction and pay the seller"
             );
         }
 
         // If no judge is specified, anyone can finalize
-        pendingWithdrawals[sellerAddress] = winningPrice;
+        pendingWithdrawals[sellerAddress] += winningPrice;
 
     }
 
@@ -78,7 +78,7 @@ contract Auction {
             "Only the seller or judge can refund the money to the winner"
         );
 
-        pendingWithdrawals[winnerAddress] = winningPrice;
+        pendingWithdrawals[winnerAddress] += winningPrice;
     }
 
     // Withdraw funds from the contract.
